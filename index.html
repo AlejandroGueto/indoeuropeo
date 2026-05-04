@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Lenguas Indoeuropeas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling on the main body */
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+
+        /* Custom Scrollbar for sidebar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .branch-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .branch-card:hover {
+            transform: translateY(-2px);
+        }
+        .branch-card.active {
+            border-left-width: 4px;
+            background-color: #f8fafc;
+        }
+
+        /* Nuevos estilos interactivos */
+        .tab-btn {
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active {
+            border-bottom-color: #2563eb;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .quiz-option {
+            transition: all 0.2s;
+            border: 2px solid #e2e8f0;
+        }
+        .quiz-option:hover:not(:disabled) {
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        .quiz-option.correct {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+            color: #166534;
+        }
+        .quiz-option.incorrect {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- Sidebar Info Panel -->
+    <aside class="w-full md:w-1/3 lg:w-1/4 h-[45vh] md:h-screen bg-white shadow-xl z-20 flex flex-col relative">
+        <div class="p-5 border-b border-slate-100 bg-white sticky top-0 z-10 shadow-sm">
+            <h1 class="text-2xl font-bold text-slate-900 mb-1">Familia Indoeuropea</h1>
+            <p class="text-xs text-slate-500 mb-4">
+                Explora el mapa, descubre cognados o ponte a prueba con los ejercicios.
+            </p>
+            
+            <!-- Tabs -->
+            <div class="flex space-x-4 text-sm font-medium text-slate-500 border-b border-slate-200">
+                <button onclick="setMode('explore')" id="tab-explore" class="tab-btn active pb-2 px-1">Explorar</button>
+                <button onclick="setMode('cognates')" id="tab-cognates" class="tab-btn pb-2 px-1">Cognados</button>
+                <button onclick="setMode('quiz')" id="tab-quiz" class="tab-btn pb-2 px-1 flex items-center gap-1">
+                    Ejercicios
+                    <span class="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full">¡Nuevo!</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tab Content: Explore -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3" id="panel-explore">
+            <!-- Branch items will be dynamically injected here -->
+        </div>
+
+        <!-- Tab Content: Cognates -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 hidden animate-fade-in" id="panel-cognates">
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
+                <h3 class="font-bold text-blue-800 mb-2">¿Qué es un cognado?</h3>
+                <p class="text-xs text-blue-700">
+                    Son palabras en diferentes idiomas que comparten una misma raíz etimológica. Observa cómo se dice el número <strong>"TRES"</strong> en distintas ramas, revelando su origen común (el protoindoeuropeo <i>*tréyes</i>).
+                </p>
+            </div>
+            <div id="cognates-list" class="space-y-2">
+                <!-- Cognates injected here -->
+            </div>
+        </div>
+
+        <!-- Tab Content: Quiz -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 hidden animate-fade-in flex flex-col" id="panel-quiz">
+            <div id="quiz-intro" class="text-center py-8">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg mb-2">Ponte a prueba</h3>
+                <p class="text-sm text-slate-500 mb-6">Demuestra lo que has aprendido sobre la familia de lenguas indoeuropeas.</p>
+                <button onclick="startQuiz()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-colors">
+                    Comenzar Ejercicios
+                </button>
+            </div>
+
+            <div id="quiz-active" class="hidden flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    <span id="quiz-progress">Pregunta 1/5</span>
+                    <span id="quiz-score">Aciertos: 0</span>
+                </div>
+                
+                <h3 id="quiz-question" class="font-bold text-slate-800 text-lg mb-4">¿Pregunta?</h3>
+                
+                <div id="quiz-options" class="space-y-3 mb-6">
+                    <!-- Options injected here -->
+                </div>
+
+                <div id="quiz-feedback" class="hidden p-4 rounded-lg mb-4 text-sm"></div>
+
+                <div class="mt-auto">
+                    <button id="quiz-next-btn" onclick="nextQuestion()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 px-4 rounded-lg shadow transition-colors hidden">
+                        Siguiente Pregunta
+                    </button>
+                </div>
+            </div>
+
+            <div id="quiz-results" class="hidden text-center py-8">
+                <div class="text-4xl mb-4">🏆</div>
+                <h3 class="font-bold text-xl mb-2">¡Completado!</h3>
+                <p class="text-slate-600 mb-6">Has acertado <span id="final-score" class="font-bold text-blue-600 text-lg"></span> preguntas.</p>
+                <button onclick="startQuiz()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2 px-6 rounded-lg transition-colors">
+                    Reintentar
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Map Container -->
+    <main class="w-full md:w-2/3 lg:w-3/4 h-[55vh] md:h-screen relative z-0">
+        <div id="map"></div>
+        
+        <!-- Floating Info Box (Hidden by default, shown on selection) -->
+        <div id="info-overlay" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur shadow-2xl rounded-2xl p-6 w-11/12 max-w-md z-[1000] hidden transition-opacity duration-300 border border-slate-100">
+            <button onclick="closeInfo()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+            <div class="flex items-center space-x-3 mb-2">
+                <div id="info-color" class="w-4 h-4 rounded-full"></div>
+                <h2 id="info-title" class="text-xl font-bold text-slate-800">Nombre de la Rama</h2>
+            </div>
+            
+            <div id="info-curiosity" class="text-xs font-medium text-blue-600 mb-3 bg-blue-50 py-1.5 px-3 rounded-md inline-block">
+                💡 Curiosidad...
+            </div>
+
+            <p id="info-desc" class="text-sm text-slate-600 mb-4 line-clamp-3">Descripción breve...</p>
+            
+            <div>
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Lenguas principales</h3>
+                <div id="info-langs" class="flex flex-wrap gap-2">
+                    <!-- Badges injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Map Indicator -->
+        <div id="quiz-map-indicator" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white shadow-xl rounded-full px-6 py-2 z-[1000] hidden font-semibold text-sm animate-fade-in pointer-events-none">
+            Haz clic en la región correcta del mapa 🌍
+        </div>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // Data for Indo-European Language Branches enriched with Curiosities and Cognates
+        const languagesData = [
+            {
+                id: 'romance',
+                name: 'Lenguas Romances',
+                color: '#e11d48',
+                center: [43.0, 5.0],
+                radius: 600000,
+                description: 'Evolucionaron del latín vulgar hablado por soldados, colonos y mercaderes del Imperio Romano. Hoy en día, son lenguas maternas de cientos de millones de personas.',
+                examples: ['Español', 'Francés', 'Italiano', 'Portugués', 'Rumano', 'Catalán'],
+                curiosity: 'El rumano es la única lengua romance principal que conserva casos gramaticales del latín.',
+                cognate: 'Tres / Trois / Tre / Trei'
+            },
+            {
+                id: 'germanic',
+                name: 'Lenguas Germánicas',
+                color: '#2563eb',
+                center: [52.0, 10.0],
+                radius: 550000,
+                description: 'Se originaron en el norte de Europa. Se caracterizan por ciertos cambios fonéticos históricos (como la Ley de Grimm) y un vocabulario distintivo.',
+                examples: ['Inglés', 'Alemán', 'Neerlandés', 'Sueco', 'Danés', 'Noruego'],
+                curiosity: 'El inglés es germánico, pero tras la invasión normanda (1066), casi el 60% de su vocabulario proviene del latín/francés.',
+                cognate: 'Three / Drei / Tre / Drie'
+            },
+            {
+                id: 'slavic',
+                name: 'Lenguas Eslavas',
+                color: '#16a34a',
+                center: [51.0, 28.0],
+                radius: 700000,
+                description: 'Habladas en Europa del Este, los Balcanes y norte de Asia. Comparten gran similitud léxica y gramatical. Se dividen en orientales, occidentales y meridionales.',
+                examples: ['Ruso', 'Polaco', 'Ucraniano', 'Checo', 'Serbio', 'Búlgaro'],
+                curiosity: 'Dependiendo de la religión histórica del país, usan el alfabeto latino (católicos) o el cirílico (ortodoxos).',
+                cognate: 'Tri / Trzy / Tři'
+            },
+            {
+                id: 'indo-iranian',
+                name: 'Lenguas Indoiranias',
+                color: '#d97706',
+                center: [30.0, 65.0],
+                radius: 1200000,
+                description: 'La rama más oriental y numerosa en cuanto a hablantes nativos. Tienen una tradición escrita antiquísima gracias al sánscrito y al avéstico.',
+                examples: ['Hindi', 'Urdu', 'Bengalí', 'Persa (Farsi)', 'Kurdo', 'Pastún'],
+                curiosity: 'El sánscrito antiguo es clave para la lingüística; su descubrimiento conectó los idiomas europeos con los asiáticos.',
+                cognate: 'Teen (Hindi) / Se (Persa) / Tri (Sánscrito)'
+            },
+            {
+                id: 'celtic',
+                name: 'Lenguas Celtas',
+                color: '#9333ea',
+                center: [53.5, -6.5],
+                radius: 250000,
+                description: 'En la Antigüedad se hablaban en gran parte de Europa occidental y central, pero hoy se limitan a las periferias de las Islas Británicas y la región francesa de Bretaña.',
+                examples: ['Irlandés', 'Galés', 'Bretón', 'Gaélico Escocés'],
+                curiosity: 'Fueron dominantes en Europa antes de la expansión del Imperio Romano.',
+                cognate: 'Trí / Tri / Tair'
+            },
+            {
+                id: 'hellenic',
+                name: 'Lenguas Helénicas',
+                color: '#0ea5e9',
+                center: [38.5, 23.0],
+                radius: 200000,
+                description: 'Representadas hoy principalmente por el griego moderno. El griego tiene una historia documentada de más de 3.400 años ininterrumpidos.',
+                examples: ['Griego Moderno', 'Tsacónico'],
+                curiosity: 'Es la lengua con la tradición escrita más larga del mundo occidental.',
+                cognate: 'Tria / Treis'
+            },
+            {
+                id: 'baltic',
+                name: 'Lenguas Bálticas',
+                color: '#0d9488',
+                center: [56.0, 24.0],
+                radius: 150000,
+                description: 'Confinadas al este del mar Báltico. Son de gran interés porque han conservado muchas características arcaicas del protoindoeuropeo.',
+                examples: ['Lituano', 'Letón'],
+                curiosity: 'El lituano es considerado la lengua indoeuropea viva más cercana al protoindoeuropeo original.',
+                cognate: 'Trys / Trīs'
+            },
+            {
+                id: 'armenian',
+                name: 'Armenio',
+                color: '#be123c',
+                center: [40.0, 45.0],
+                radius: 100000,
+                description: 'Constituye una rama independiente. Posee su propio alfabeto, creado en el año 405 d.C., y una rica tradición literaria.',
+                examples: ['Armenio Oriental', 'Armenio Occidental'],
+                curiosity: 'Su alfabeto de 39 letras fue inventado por el monje Mesrop Mashtots para traducir la Biblia.',
+                cognate: 'Yerek'
+            },
+            {
+                id: 'albanian',
+                name: 'Albanés',
+                color: '#4f46e5',
+                center: [41.3, 20.0],
+                radius: 100000,
+                description: 'Rama independiente, hablada principalmente en Albania y Kosovo. Ha absorbido mucho vocabulario de lenguas vecinas a lo largo de los siglos.',
+                examples: ['Tosk', 'Gheg'],
+                curiosity: 'A pesar de sus muchos préstamos extranjeros, mantiene una estructura indoeuropea única.',
+                cognate: 'Tre'
+            }
+        ];
+
+        // Quiz Exercises Data
+        const exercisesData = [
+            {
+                type: 'multiple-choice',
+                question: '¿Cuál es la lengua indoeuropea viva más parecida al protoindoeuropeo original (la lengua "madre")?',
+                options: ['El Griego Moderno', 'El Lituano', 'El Latín', 'El Sánscrito'],
+                correctIndex: 1,
+                explanation: '¡Correcto! El lituano (rama báltica) ha conservado características gramaticales y fonéticas muy antiguas.'
+            },
+            {
+                type: 'map-click',
+                question: 'Localiza en el mapa la región donde se originaron las <b>Lenguas Germánicas</b> (inglés, alemán...).',
+                targetId: 'germanic',
+                explanation: '¡Bien hecho! Las lenguas germánicas nacieron en el norte de Europa.'
+            },
+            {
+                type: 'multiple-choice',
+                question: '¿A qué rama lingüística pertenece el idioma Ruso?',
+                options: ['Lenguas Bálticas', 'Lenguas Indoiranias', 'Lenguas Eslavas', 'Lenguas Romances'],
+                correctIndex: 2,
+                explanation: '¡Exacto! El ruso pertenece a la rama de lenguas eslavas orientales.'
+            },
+            {
+                type: 'map-click',
+                question: 'Encuentra en el mapa la región de la rama a la que pertenece el idioma <b>Español</b>.',
+                targetId: 'romance',
+                explanation: '¡Correcto! El español es una lengua romance, originada del latín en el sur y occidente de Europa.'
+            },
+            {
+                type: 'multiple-choice',
+                question: '¿Qué idioma indoeuropeo, que forma una rama independiente, creó su propio alfabeto en el año 405 d.C.?',
+                options: ['El Albanés', 'El Armenio', 'El Persa', 'El Galés'],
+                correctIndex: 1,
+                explanation: '¡Eso es! El alfabeto armenio fue creado por Mesrop Mashtots a principios del siglo V.'
+            }
+        ];
+
+        let map;
+        let circles = {};
+        let currentMode = 'explore'; // 'explore', 'cognates', 'quiz'
+        
+        // Quiz State
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isWaitingForMapClick = false;
+
+        // Initialize Application
+        function initApp() {
+            map = L.map('map', { zoomControl: false }).setView([45, 30], 4);
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 10,
+                minZoom: 2
+            }).addTo(map);
+
+            const sidebarList = document.getElementById('panel-explore');
+            const cognatesList = document.getElementById('cognates-list');
+
+            languagesData.forEach(branch => {
+                // Map Circles
+                const circle = L.circle(branch.center, {
+                    color: branch.color,
+                    fillColor: branch.color,
+                    fillOpacity: 0.35,
+                    weight: 2,
+                    radius: branch.radius
+                }).addTo(map);
+
+                circle.bindTooltip(`<span class="font-semibold">${branch.name}</span>`, {
+                    className: 'bg-white border-0 shadow-md text-slate-800 rounded px-3 py-1',
+                    direction: 'top'
+                });
+
+                circle.on('click', () => handleMapClick(branch.id));
+                circles[branch.id] = circle;
+
+                // Explore Sidebar Items
+                const item = document.createElement('div');
+                item.className = `branch-card p-4 bg-white border border-slate-100 rounded-xl shadow-sm cursor-pointer border-l-4`;
+                item.style.borderLeftColor = 'transparent';
+                item.id = `card-${branch.id}`;
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3 mb-1">
+                        <div class="w-3 h-3 rounded-full" style="background-color: ${branch.color}"></div>
+                        <h3 class="font-semibold text-slate-800 text-lg">${branch.name}</h3>
+                    </div>
+                    <p class="text-xs text-slate-500 line-clamp-2">${branch.description}</p>
+                `;
+                item.addEventListener('click', () => {
+                    if(currentMode === 'explore') selectBranch(branch.id);
+                });
+                sidebarList.appendChild(item);
+
+                // Cognates Sidebar Items
+                const cogItem = document.createElement('div');
+                cogItem.className = 'p-3 bg-white border border-slate-100 rounded-lg shadow-sm flex flex-col';
+                cogItem.innerHTML = `
+                    <div class="flex items-center space-x-2 mb-1">
+                        <div class="w-2 h-2 rounded-full" style="background-color: ${branch.color}"></div>
+                        <span class="text-xs font-bold text-slate-500 uppercase">${branch.name}</span>
+                    </div>
+                    <span class="font-semibold text-slate-800 text-lg">${branch.cognate}</span>
+                `;
+                cognatesList.appendChild(cogItem);
+            });
+            
+            if (window.innerWidth <= 768) map.setView([48, 15], 3);
+        }
+
+        // Mode Switcher
+        function setMode(mode) {
+            currentMode = mode;
+            isWaitingForMapClick = false;
+            
+            // UI Tabs Reset
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${mode}`).classList.add('active');
+
+            // Panels Reset
+            document.getElementById('panel-explore').classList.add('hidden');
+            document.getElementById('panel-cognates').classList.add('hidden');
+            document.getElementById('panel-quiz').classList.add('hidden');
+            
+            // Map Reset
+            closeInfo();
+            document.getElementById('quiz-map-indicator').classList.add('hidden');
+
+            // Show active panel
+            document.getElementById(`panel-${mode}`).classList.remove('hidden');
+
+            if (mode === 'quiz') {
+                document.getElementById('quiz-intro').classList.remove('hidden');
+                document.getElementById('quiz-active').classList.add('hidden');
+                document.getElementById('quiz-results').classList.add('hidden');
+            }
+        }
+
+        // Map Click Handler logic based on Mode
+        function handleMapClick(branchId) {
+            if (currentMode === 'explore') {
+                selectBranch(branchId);
+            } else if (currentMode === 'quiz' && isWaitingForMapClick) {
+                checkMapAnswer(branchId);
+            }
+        }
+
+        // Explore Mode: Select Branch
+        function selectBranch(id) {
+            const branch = languagesData.find(b => b.id === id);
+            if (!branch) return;
+
+            // Reset UI lists
+            document.querySelectorAll('.branch-card').forEach(el => {
+                el.classList.remove('active', 'shadow-md');
+                el.classList.add('shadow-sm');
+                el.style.borderLeftColor = 'transparent';
+            });
+
+            const activeCard = document.getElementById(`card-${id}`);
+            if (activeCard) {
+                activeCard.classList.add('active', 'shadow-md');
+                activeCard.classList.remove('shadow-sm');
+                activeCard.style.borderLeftColor = branch.color;
+                activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            map.flyTo(branch.center, 5, { animate: true, duration: 1.5 });
+
+            Object.values(circles).forEach(c => c.setStyle({ fillOpacity: 0.1, weight: 1 }));
+            circles[id].setStyle({ fillOpacity: 0.6, weight: 3 });
+            circles[id].bringToFront();
+
+            // Overlay Info Update
+            document.getElementById('info-title').innerText = branch.name;
+            document.getElementById('info-curiosity').innerText = `💡 ${branch.curiosity}`;
+            document.getElementById('info-desc').innerText = branch.description;
+            document.getElementById('info-color').style.backgroundColor = branch.color;
+            
+            const langsContainer = document.getElementById('info-langs');
+            langsContainer.innerHTML = '';
+            branch.examples.forEach(lang => {
+                const badge = document.createElement('span');
+                badge.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200';
+                badge.innerText = lang;
+                langsContainer.appendChild(badge);
+            });
+
+            document.getElementById('info-overlay').classList.remove('hidden');
+        }
+
+        function closeInfo() {
+            document.getElementById('info-overlay').classList.add('hidden');
+            Object.values(circles).forEach(c => c.setStyle({ fillOpacity: 0.35, weight: 2 }));
+            document.querySelectorAll('.branch-card').forEach(el => {
+                el.classList.remove('active', 'shadow-md');
+                el.classList.add('shadow-sm');
+                el.style.borderLeftColor = 'transparent';
+            });
+            if (currentMode === 'explore') {
+                if (window.innerWidth > 768) map.flyTo([45, 25], 4, { duration: 1.5 });
+                else map.flyTo([48, 15], 3, { duration: 1.5 });
+            }
+        }
+
+        // --- QUIZ LOGIC ---
+
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            document.getElementById('quiz-intro').classList.add('hidden');
+            document.getElementById('quiz-results').classList.add('hidden');
+            document.getElementById('quiz-active').classList.remove('hidden');
+            
+            // Zoom out for quiz
+            if (window.innerWidth > 768) map.flyTo([45, 25], 4, { duration: 1 });
+            else map.flyTo([48, 15], 3, { duration: 1 });
+
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = exercisesData[currentQuestionIndex];
+            document.getElementById('quiz-progress').innerText = `Pregunta ${currentQuestionIndex + 1} / ${exercisesData.length}`;
+            document.getElementById('quiz-score').innerText = `Aciertos: ${score}`;
+            document.getElementById('quiz-question').innerHTML = q.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.add('hidden');
+            feedback.className = 'hidden p-4 rounded-lg mb-4 text-sm'; // Reset
+            
+            document.getElementById('quiz-next-btn').classList.add('hidden');
+
+            if (q.type === 'multiple-choice') {
+                isWaitingForMapClick = false;
+                document.getElementById('quiz-map-indicator').classList.add('hidden');
+                
+                q.options.forEach((opt, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'quiz-option w-full text-left px-4 py-3 rounded-lg font-medium text-slate-700 bg-white shadow-sm';
+                    btn.innerText = opt;
+                    btn.onclick = () => checkMultipleChoice(index, btn);
+                    optionsContainer.appendChild(btn);
+                });
+            } else if (q.type === 'map-click') {
+                isWaitingForMapClick = true;
+                document.getElementById('quiz-map-indicator').classList.remove('hidden');
+                optionsContainer.innerHTML = '<div class="text-center p-6 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 text-blue-700 font-medium animate-pulse">👆 Interactúa con el mapa a tu derecha (o abajo) para responder.</div>';
+                
+                // Highlight Map slightly
+                Object.values(circles).forEach(c => {
+                    c.setStyle({ className: 'cursor-pointer hover:fill-blue-500' });
+                });
+            }
+        }
+
+        function checkMultipleChoice(selectedIndex, buttonElement) {
+            const q = exercisesData[currentQuestionIndex];
+            const buttons = document.querySelectorAll('.quiz-option');
+            buttons.forEach(btn => btn.disabled = true);
+
+            const isCorrect = selectedIndex === q.correctIndex;
+            
+            if (isCorrect) {
+                buttonElement.classList.add('correct');
+                score++;
+                showFeedback(true, q.explanation);
+            } else {
+                buttonElement.classList.add('incorrect');
+                buttons[q.correctIndex].classList.add('correct'); // Show right answer
+                showFeedback(false, q.explanation);
+            }
+            
+            document.getElementById('quiz-score').innerText = `Aciertos: ${score}`;
+            document.getElementById('quiz-next-btn').classList.remove('hidden');
+        }
+
+        function checkMapAnswer(branchId) {
+            const q = exercisesData[currentQuestionIndex];
+            isWaitingForMapClick = false;
+            document.getElementById('quiz-map-indicator').classList.add('hidden');
+            
+            const isCorrect = branchId === q.targetId;
+            
+            // Visual feedback on map
+            Object.values(circles).forEach(c => c.setStyle({ fillOpacity: 0.1 }));
+            circles[branchId].setStyle({ fillOpacity: 0.8, weight: 4, color: isCorrect ? '#22c55e' : '#ef4444' });
+            
+            if (isCorrect) {
+                score++;
+                showFeedback(true, q.explanation);
+            } else {
+                showFeedback(false, `No es correcto. Esa es la región de las ${languagesData.find(b=>b.id===branchId).name}. ` + q.explanation);
+                // Highlight correct area
+                circles[q.targetId].setStyle({ fillOpacity: 0.8, weight: 4, color: '#22c55e' });
+                map.flyTo(languagesData.find(b=>b.id===q.targetId).center, 4, { duration: 1 });
+            }
+
+            document.getElementById('quiz-score').innerText = `Aciertos: ${score}`;
+            document.getElementById('quiz-next-btn').classList.remove('hidden');
+            document.getElementById('quiz-options').innerHTML = ''; // Clear prompt
+        }
+
+        function showFeedback(isCorrect, text) {
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+            if (isCorrect) {
+                feedback.classList.add('bg-green-100', 'text-green-800', 'border', 'border-green-200');
+                feedback.innerHTML = `<strong>¡Correcto!</strong> <br> ${text}`;
+            } else {
+                feedback.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-200');
+                feedback.innerHTML = `<strong>Incorrecto.</strong> <br> ${text}`;
+            }
+        }
+
+        function nextQuestion() {
+            // Reset map highlights from map-click questions
+            languagesData.forEach(branch => {
+                circles[branch.id].setStyle({ color: branch.color, fillColor: branch.color, fillOpacity: 0.35, weight: 2 });
+            });
+
+            currentQuestionIndex++;
+            if (currentQuestionIndex < exercisesData.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('quiz-active').classList.add('hidden');
+            document.getElementById('quiz-results').classList.remove('hidden');
+            document.getElementById('final-score').innerText = `${score} de ${exercisesData.length}`;
+            
+            if (window.innerWidth > 768) map.flyTo([45, 25], 4);
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
