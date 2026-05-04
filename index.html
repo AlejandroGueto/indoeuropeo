@@ -86,6 +86,26 @@
             from { opacity: 0; transform: translateY(5px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Estilos Premium */
+        .word-selector {
+            transition: all 0.2s;
+        }
+        .word-selector.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        .map-layer-btn {
+            background: white;
+            border: 2px solid rgba(0,0,0,0.1);
+            background-clip: padding-box;
+            transition: all 0.2s ease;
+        }
+        .map-layer-btn:hover {
+            background-color: #f8fafc;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen w-screen flex flex-col md:flex-row">
@@ -118,10 +138,22 @@
         <div class="flex-1 overflow-y-auto custom-scrollbar p-4 hidden animate-fade-in" id="panel-cognates">
             <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
                 <h3 class="font-bold text-blue-800 mb-2">¿Qué es un cognado?</h3>
-                <p class="text-xs text-blue-700">
-                    Son palabras en diferentes idiomas que comparten una misma raíz etimológica. Observa cómo se dice el número <strong>"TRES"</strong> en distintas ramas, revelando su origen común (el protoindoeuropeo <i>*tréyes</i>).
+                <p class="text-xs text-blue-700 mb-3">
+                    Son palabras en diferentes idiomas que comparten una misma raíz etimológica. Selecciona una palabra para ver cómo evolucionó desde la raíz protoindoeuropea original.
                 </p>
+                <div class="flex flex-wrap gap-2" id="word-selectors">
+                    <button onclick="renderCognates('tres')" id="ws-tres" class="word-selector active px-3 py-1 text-xs font-semibold rounded-full border border-blue-300 text-blue-700 hover:bg-blue-100">TRES</button>
+                    <button onclick="renderCognates('madre')" id="ws-madre" class="word-selector px-3 py-1 text-xs font-semibold rounded-full border border-blue-300 text-blue-700 hover:bg-blue-100">MADRE</button>
+                    <button onclick="renderCognates('nuevo')" id="ws-nuevo" class="word-selector px-3 py-1 text-xs font-semibold rounded-full border border-blue-300 text-blue-700 hover:bg-blue-100">NUEVO</button>
+                    <button onclick="renderCognates('dos')" id="ws-dos" class="word-selector px-3 py-1 text-xs font-semibold rounded-full border border-blue-300 text-blue-700 hover:bg-blue-100">DOS</button>
+                </div>
             </div>
+
+            <div id="pie-root-info" class="text-center py-2 mb-3">
+                <span class="text-xs text-slate-500 uppercase tracking-widest">Raíz Protoindoeuropea</span>
+                <h4 id="pie-root-word" class="text-xl font-bold text-slate-800">*tréyes</h4>
+            </div>
+
             <div id="cognates-list" class="space-y-2">
                 <!-- Cognates injected here -->
             </div>
@@ -208,6 +240,19 @@
         <div id="quiz-map-indicator" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white shadow-xl rounded-full px-6 py-2 z-[1000] hidden font-semibold text-sm animate-fade-in pointer-events-none">
             Haz clic en la región correcta del mapa 🌍
         </div>
+
+        <!-- Premium Feature: Map Layer Switcher -->
+        <div class="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+            <button onclick="changeMapStyle('light')" title="Mapa Claro" class="map-layer-btn w-10 h-10 rounded-lg shadow flex items-center justify-center text-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </button>
+            <button onclick="changeMapStyle('dark')" title="Mapa Oscuro" class="map-layer-btn w-10 h-10 rounded-lg shadow flex items-center justify-center text-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <button onclick="changeMapStyle('satellite')" title="Mapa Satélite" class="map-layer-btn w-10 h-10 rounded-lg shadow flex items-center justify-center text-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10zM12 2v20"/></svg>
+            </button>
+        </div>
     </main>
 
     <!-- Leaflet JS -->
@@ -225,7 +270,12 @@
                 description: 'Evolucionaron del latín vulgar hablado por soldados, colonos y mercaderes del Imperio Romano. Hoy en día, son lenguas maternas de cientos de millones de personas.',
                 examples: ['Español', 'Francés', 'Italiano', 'Portugués', 'Rumano', 'Catalán'],
                 curiosity: 'El rumano es la única lengua romance principal que conserva casos gramaticales del latín.',
-                cognate: 'Tres / Trois / Tre / Trei'
+                cognates: {
+                    tres: '🇪🇸 Español: tres<br>🇫🇷 Francés: trois<br>🇮🇹 Italiano: tre<br>🇷🇴 Rumano: trei',
+                    madre: '🇪🇸 Español: madre<br>🇫🇷 Francés: mère<br>🇮🇹 Italiano: madre<br>🇷🇴 Rumano: mamă',
+                    nuevo: '🇪🇸 Español: nuevo<br>🇫🇷 Francés: nouveau<br>🇮🇹 Italiano: nuovo<br>🇷🇴 Rumano: nou',
+                    dos: '🇪🇸 Español: dos<br>🇫🇷 Francés: deux<br>🇮🇹 Italiano: due<br>🇷🇴 Rumano: doi'
+                }
             },
             {
                 id: 'germanic',
@@ -236,7 +286,12 @@
                 description: 'Se originaron en el norte de Europa. Se caracterizan por ciertos cambios fonéticos históricos (como la Ley de Grimm) y un vocabulario distintivo.',
                 examples: ['Inglés', 'Alemán', 'Neerlandés', 'Sueco', 'Danés', 'Noruego'],
                 curiosity: 'El inglés es germánico, pero tras la invasión normanda (1066), casi el 60% de su vocabulario proviene del latín/francés.',
-                cognate: 'Three / Drei / Tre / Drie'
+                cognates: {
+                    tres: '🇬🇧 Inglés: three<br>🇩🇪 Alemán: drei<br>🇸🇪 Sueco: tre<br>🇳🇱 Neerlandés: drie',
+                    madre: '🇬🇧 Inglés: mother<br>🇩🇪 Alemán: Mutter<br>🇸🇪 Sueco: moder<br>🇳🇱 Neerlandés: moeder',
+                    nuevo: '🇬🇧 Inglés: new<br>🇩🇪 Alemán: neu<br>🇸🇪 Sueco: ny<br>🇳🇱 Neerlandés: nieuw',
+                    dos: '🇬🇧 Inglés: two<br>🇩🇪 Alemán: zwei<br>🇸🇪 Sueco: två<br>🇳🇱 Neerlandés: twee'
+                }
             },
             {
                 id: 'slavic',
@@ -247,7 +302,12 @@
                 description: 'Habladas en Europa del Este, los Balcanes y norte de Asia. Comparten gran similitud léxica y gramatical. Se dividen en orientales, occidentales y meridionales.',
                 examples: ['Ruso', 'Polaco', 'Ucraniano', 'Checo', 'Serbio', 'Búlgaro'],
                 curiosity: 'Dependiendo de la religión histórica del país, usan el alfabeto latino (católicos) o el cirílico (ortodoxos).',
-                cognate: 'Tri / Trzy / Tři'
+                cognates: {
+                    tres: '🇷🇺 Ruso: tri<br>🇵🇱 Polaco: trzy<br>🇨🇿 Checo: tři',
+                    madre: '🇷🇺 Ruso: mat\'<br>🇵🇱 Polaco: matka<br>🇨🇿 Checo: matka',
+                    nuevo: '🇷🇺 Ruso: novy<br>🇵🇱 Polaco: nowy<br>🇨🇿 Checo: nový',
+                    dos: '🇷🇺 Ruso: dva<br>🇵🇱 Polaco: dwa<br>🇨🇿 Checo: dva'
+                }
             },
             {
                 id: 'indo-iranian',
@@ -258,7 +318,12 @@
                 description: 'La rama más oriental y numerosa en cuanto a hablantes nativos. Tienen una tradición escrita antiquísima gracias al sánscrito y al avéstico.',
                 examples: ['Hindi', 'Urdu', 'Bengalí', 'Persa (Farsi)', 'Kurdo', 'Pastún'],
                 curiosity: 'El sánscrito antiguo es clave para la lingüística; su descubrimiento conectó los idiomas europeos con los asiáticos.',
-                cognate: 'Teen (Hindi) / Se (Persa) / Tri (Sánscrito)'
+                cognates: {
+                    tres: '🇮🇳 Hindi: teen<br>🇮🇷 Persa: se<br>🕉️ Sánscrito: tri',
+                    madre: '🇮🇳 Hindi: mata<br>🇮🇷 Persa: madar<br>🕉️ Sánscrito: matr',
+                    nuevo: '🇮🇳 Hindi: naya<br>🇮🇷 Persa: now<br>🕉️ Sánscrito: nava',
+                    dos: '🇮🇳 Hindi: do<br>🇮🇷 Persa: do<br>🕉️ Sánscrito: dva'
+                }
             },
             {
                 id: 'celtic',
@@ -269,7 +334,12 @@
                 description: 'En la Antigüedad se hablaban en gran parte de Europa occidental y central, pero hoy se limitan a las periferias de las Islas Británicas y la región francesa de Bretaña.',
                 examples: ['Irlandés', 'Galés', 'Bretón', 'Gaélico Escocés'],
                 curiosity: 'Fueron dominantes en Europa antes de la expansión del Imperio Romano.',
-                cognate: 'Trí / Tri / Tair'
+                cognates: {
+                    tres: '🇮🇪 Irlandés: trí<br>🏴󠁧󠁢󠁷󠁬󠁳󠁿 Galés: tri<br>🇫🇷 Bretón: tri',
+                    madre: '🇮🇪 Irlandés: máthair<br>🏴󠁧󠁢󠁷󠁬󠁳󠁿 Galés: mam<br>🇫🇷 Bretón: mamm',
+                    nuevo: '🇮🇪 Irlandés: nua<br>🏴󠁧󠁢󠁷󠁬󠁳󠁿 Galés: newydd<br>🇫🇷 Bretón: nevez',
+                    dos: '🇮🇪 Irlandés: dó<br>🏴󠁧󠁢󠁷󠁬󠁳󠁿 Galés: dau<br>🇫🇷 Bretón: daou'
+                }
             },
             {
                 id: 'hellenic',
@@ -280,7 +350,12 @@
                 description: 'Representadas hoy principalmente por el griego moderno. El griego tiene una historia documentada de más de 3.400 años ininterrumpidos.',
                 examples: ['Griego Moderno', 'Tsacónico'],
                 curiosity: 'Es la lengua con la tradición escrita más larga del mundo occidental.',
-                cognate: 'Tria / Treis'
+                cognates: {
+                    tres: '🇬🇷 Griego Mod: tría<br>🏛️ Griego Antiguo: treîs',
+                    madre: '🇬🇷 Griego Mod: mitéra<br>🏛️ Griego Antiguo: mḗtēr',
+                    nuevo: '🇬🇷 Griego Mod: néos<br>🏛️ Griego Antiguo: néos',
+                    dos: '🇬🇷 Griego Mod: dýo<br>🏛️ Griego Antiguo: dýo'
+                }
             },
             {
                 id: 'baltic',
@@ -291,7 +366,12 @@
                 description: 'Confinadas al este del mar Báltico. Son de gran interés porque han conservado muchas características arcaicas del protoindoeuropeo.',
                 examples: ['Lituano', 'Letón'],
                 curiosity: 'El lituano es considerado la lengua indoeuropea viva más cercana al protoindoeuropeo original.',
-                cognate: 'Trys / Trīs'
+                cognates: {
+                    tres: '🇱🇹 Lituano: trys<br>🇱🇻 Letón: trīs',
+                    madre: '🇱🇹 Lituano: motina<br>🇱🇻 Letón: māte',
+                    nuevo: '🇱🇹 Lituano: naujas<br>🇱🇻 Letón: jauns',
+                    dos: '🇱🇹 Lituano: du<br>🇱🇻 Letón: divi'
+                }
             },
             {
                 id: 'armenian',
@@ -302,7 +382,12 @@
                 description: 'Constituye una rama independiente. Posee su propio alfabeto, creado en el año 405 d.C., y una rica tradición literaria.',
                 examples: ['Armenio Oriental', 'Armenio Occidental'],
                 curiosity: 'Su alfabeto de 39 letras fue inventado por el monje Mesrop Mashtots para traducir la Biblia.',
-                cognate: 'Yerek'
+                cognates: {
+                    tres: '🇦🇲 Armenio: yerek',
+                    madre: '🇦🇲 Armenio: mayr',
+                    nuevo: '🇦🇲 Armenio: nor',
+                    dos: '🇦🇲 Armenio: yerku'
+                }
             },
             {
                 id: 'albanian',
@@ -313,9 +398,22 @@
                 description: 'Rama independiente, hablada principalmente en Albania y Kosovo. Ha absorbido mucho vocabulario de lenguas vecinas a lo largo de los siglos.',
                 examples: ['Tosk', 'Gheg'],
                 curiosity: 'A pesar de sus muchos préstamos extranjeros, mantiene una estructura indoeuropea única.',
-                cognate: 'Tre'
+                cognates: {
+                    tres: '🇦🇱 Albanés: tre',
+                    madre: '🇦🇱 Albanés: motër (hoy significa hermana)',
+                    nuevo: '🇦🇱 Albanés: i ri (evolución divergente)',
+                    dos: '🇦🇱 Albanés: dy'
+                }
             }
         ];
+
+        // Cognates Roots Data
+        const pieRoots = {
+            tres: '*tréyes',
+            madre: '*méh₂tēr',
+            nuevo: '*néwos',
+            dos: '*dwóh₁'
+        };
 
         // Quiz Exercises Data
         const exercisesData = [
@@ -351,10 +449,45 @@
                 options: ['El Albanés', 'El Armenio', 'El Persa', 'El Galés'],
                 correctIndex: 1,
                 explanation: '¡Eso es! El alfabeto armenio fue creado por Mesrop Mashtots a principios del siglo V.'
+            },
+            // Premium Added Exercises
+            {
+                type: 'multiple-choice',
+                question: '¿Qué lengua celta se habla actualmente en la región francesa de Bretaña?',
+                options: ['El Galés', 'El Córnico', 'El Bretón', 'El Gaélico Escocés'],
+                correctIndex: 2,
+                explanation: '¡Correcto! El Bretón fue llevado a Francia por emigrantes de Gran Bretaña durante la Edad Media.'
+            },
+            {
+                type: 'map-click',
+                question: 'Haz clic en la rama a la que pertenecen el <b>Hindi</b> y el <b>Persa</b>, que además es la más oriental.',
+                targetId: 'indo-iranian',
+                explanation: '¡Genial! Las lenguas indoiranias son la rama más oriental y hablada de la familia.'
+            },
+            {
+                type: 'multiple-choice',
+                question: '¿Cuál de estos idiomas <b>NO</b> es una lengua indoeuropea? (¡Pregunta trampa!)',
+                options: ['El Búlgaro', 'El Euskera (Vasco)', 'El Kurdo', 'El Rumano'],
+                correctIndex: 1,
+                explanation: '¡Perfecto! El euskera es una lengua aislada preindoeuropea; no tiene relación genealógica con ninguna otra familia conocida.'
+            },
+            {
+                type: 'map-click',
+                question: 'Localiza la rama lingüística que ostenta la tradición escrita ininterrumpida más larga del mundo occidental.',
+                targetId: 'hellenic',
+                explanation: '¡Correcto! Las lenguas helénicas (el griego) tienen registros de más de 3.400 años de antigüedad.'
+            },
+            {
+                type: 'multiple-choice',
+                question: 'En la palabra "Cognado", ¿a qué hace referencia la raíz protoindoeuropea *méh₂tēr?',
+                options: ['Al número Dos', 'Al adjetivo Nuevo', 'Al sustantivo Noche', 'Al sustantivo Madre'],
+                correctIndex: 3,
+                explanation: '¡Así es! De *méh₂tēr derivan madre (español), mother (inglés), matka (polaco), etc.'
             }
         ];
 
         let map;
+        let mapLayer; // Para la capa base
         let circles = {};
         let currentMode = 'explore'; // 'explore', 'cognates', 'quiz'
         
@@ -363,12 +496,19 @@
         let score = 0;
         let isWaitingForMapClick = false;
 
+        // Tile layers URLs
+        const tileLayers = {
+            light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        };
+
         // Initialize Application
         function initApp() {
             map = L.map('map', { zoomControl: false }).setView([45, 30], 4);
             L.control.zoom({ position: 'topright' }).addTo(map);
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            mapLayer = L.tileLayer(tileLayers.light, {
                 attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
                 subdomains: 'abcd',
                 maxZoom: 10,
@@ -376,7 +516,6 @@
             }).addTo(map);
 
             const sidebarList = document.getElementById('panel-explore');
-            const cognatesList = document.getElementById('cognates-list');
 
             languagesData.forEach(branch => {
                 // Map Circles
@@ -412,21 +551,56 @@
                     if(currentMode === 'explore') selectBranch(branch.id);
                 });
                 sidebarList.appendChild(item);
+            });
+            
+            // Initialize first cognate word
+            renderCognates('tres');
+            
+            if (window.innerWidth <= 768) map.setView([48, 15], 3);
+        }
 
-                // Cognates Sidebar Items
+        // Premium: Change Map Style
+        function changeMapStyle(style) {
+            map.removeLayer(mapLayer);
+            mapLayer = L.tileLayer(tileLayers[style], {
+                attribution: style === 'satellite' ? '&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community' : '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 10,
+                minZoom: 2
+            }).addTo(map);
+        }
+
+        // Premium: Render Cognates by word
+        function renderCognates(wordId) {
+            // Update buttons
+            document.querySelectorAll('.word-selector').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-600', 'text-white');
+                btn.classList.add('text-blue-700', 'hover:bg-blue-100');
+            });
+            const activeBtn = document.getElementById(`ws-${wordId}`);
+            activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
+            activeBtn.classList.remove('text-blue-700', 'hover:bg-blue-100');
+
+            // Update PIE Root
+            document.getElementById('pie-root-word').innerText = pieRoots[wordId];
+
+            // Render List
+            const cognatesList = document.getElementById('cognates-list');
+            cognatesList.innerHTML = '';
+            
+            languagesData.forEach(branch => {
                 const cogItem = document.createElement('div');
-                cogItem.className = 'p-3 bg-white border border-slate-100 rounded-lg shadow-sm flex flex-col';
+                cogItem.className = 'p-3 bg-white border border-slate-100 rounded-lg shadow-sm flex flex-col animate-fade-in';
                 cogItem.innerHTML = `
-                    <div class="flex items-center space-x-2 mb-1">
+                    <div class="flex items-center space-x-2 mb-2 border-b border-slate-100 pb-1">
                         <div class="w-2 h-2 rounded-full" style="background-color: ${branch.color}"></div>
                         <span class="text-xs font-bold text-slate-500 uppercase">${branch.name}</span>
                     </div>
-                    <span class="font-semibold text-slate-800 text-lg">${branch.cognate}</span>
+                    <div class="text-sm text-slate-800 leading-relaxed font-medium ml-4">
+                        ${branch.cognates[wordId]}
+                    </div>
                 `;
                 cognatesList.appendChild(cogItem);
             });
-            
-            if (window.innerWidth <= 768) map.setView([48, 15], 3);
         }
 
         // Mode Switcher
